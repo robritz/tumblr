@@ -1,0 +1,24 @@
+<html>
+<head>
+
+<script src="js/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue-resource@1.5.1"></script>
+
+<link type="text/css" rel="stylesheet" href="css/main.css" type="text/stylesheet" />
+</head>
+<body>
+
+<div id="tumblr" v-bind:class="{ loading: isLoading }">
+	<h1>Goats on Stuff!</h1>
+	<ul class="image-container">
+		<li v-for="photo in masterList" class="image-item">
+			<img :src="photo.url" />
+		</li>
+	</ul>
+	<img src="images/kurt-loader.gif" class="spinner" />
+	<div class="error" v-if="error">There was an error loading your images. Please try again.</div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
