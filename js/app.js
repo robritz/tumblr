@@ -2,14 +2,20 @@ var tumblr = new Vue({
 	el: '#tumblr',
 	data:{
 		isLoading: false,
-		apiUrl: 'https://api.tumblr.com/v2/blog/goatsonthings/posts/photo',
-		apiKey: 'gfriCKepweYPnYejxLqRmYUes0Qw8Qu7RPs0BtYHv2G6W0vxIQ',
-		tag: 'goat-blog',
-		limit: 10,
-		offset: 0,
+		apiUrl: 'https://api.tumblr.com/v2/tagged',
+		apiParams: {
+			api_key: 'gfriCKepweYPnYejxLqRmYUes0Qw8Qu7RPs0BtYHv2G6W0vxIQ',
+			tag: 'goats',
+			limit: 20
+		},
+		acceptedTypes: ['photo'],
 		masterList: [],
 		preloadList: [],
-		error: false
+		error: '',
+		errorMsgs: {
+			noMatch: "There were no photo posts that matched your criteria.",
+			loadFail: "There was an error loading your images. Please try again."
+		}
 	},
 	methods:{
 		init: function(){
@@ -21,7 +27,14 @@ var tumblr = new Vue({
 			this.gatherPhotos();
 		},
 		getApiUrl: function(){
-			return `${this.apiUrl}?limit=${this.limit}&offset=${this.offset}&api_key=${this.apiKey}`;
+			let strParams = '';
+			let first = true;
+			for(let param in this.apiParams){
+				let separator = (first) ? '?' : '&';
+				strParams = `${strParams}${separator}${param}=${this.apiParams[param]}`;
+				first = false;
+			}
+			return `${this.apiUrl}${strParams}`;
 		},
 		gatherPhotos: function(){
 			if(!this.isLoading){
@@ -30,38 +43,59 @@ var tumblr = new Vue({
 				this.$http.get(this.getApiUrl()).then(response => {
 
 			    if(response.body.meta.status === 200){
-			    	this.processResponse(response.body.response.posts);
+			    	console.log(response.body.response);
+			    	this.processResponse(response.body.response);
 			    }else{
-			    	this.error = true;
-			    	console.log(response.body.meta);
+			    	this.displayError(this.errorMsgs.loadFail);
 			    }
 
 			  }, response => {
-			    this.error = true;
+			    this.displayError(this.errorMsgs.loadFail);
 			  });
 		  }
 		},
 		processResponse: function(posts){
-			let subset = [];
-			for(let post of posts){
-				const {url, width, height} = post.photos[0].original_size;
+			let loopStop = Math.min(this.apiParams.limit, posts.length);
+			if(loopStop > 0){
+				for(let i = 0; i < loopStop; i++){
+					let post = posts[i];
 
+					let postTypeAccepted = this.acceptedTypes.find(type => {
+						return type == post.type;
+					});
+
+					if(postTypeAccepted){
+						this.preloadList.push(post.photos[0].original_size.url);
+					}
+
+					if(i === loopStop-1){
+						this.apiParams.before = post.timestamp;
+						this.preloadImages();
+					}
+
+				}
+			}else{
+				this.displayError(this.errorMsgs.noMatch);
+			}
+			
+
+			console.log(this.preloadList);
+			
+		},
+		preloadImages: function(){
+			let inc = 0;
+			for(let url of this.preloadList){
 				let image = new Image();
 				image.addEventListener('load', ()=>{
-					this.preloadList.push({
-						url,
-						width,
-						height
-					});
-					this.checkPreloadComplete();
+					inc++;
+					this.checkPreloadComplete(inc);
 				}, false);
 
 				image.src = url;
 			}
-			
 		},
-		checkPreloadComplete(){
-			if(this.preloadList.length == this.limit){
+		checkPreloadComplete: function(targetLength){
+			if(this.preloadList.length == (targetLength+1)){
 				this.masterList.push.apply(this.masterList, this.preloadList);
 				this.preloadList = [];
 				this.isLoading = false;
@@ -71,12 +105,16 @@ var tumblr = new Vue({
 		getDistFromBottom: function() {
 
   		// distance from bottom math from: https://codepen.io/timothyli/pen/JXVMZY
-		  var scrollPosition = window.pageYOffset;
-		  var windowSize     = window.innerHeight;
-		  var bodyHeight     = document.body.offsetHeight;
+		  let scrollPosition = window.pageYOffset;
+		  let windowSize = window.innerHeight;
+		  let bodyHeight = document.body.offsetHeight;
 
 		  return Math.max(bodyHeight - (scrollPosition + windowSize), 0);
 
+		},
+		displayError: function(error){
+			this.error = error;
+			this.isLoading = false;
 		}
 	},
 	mounted: function(){
