@@ -89,7 +89,7 @@ h1{
 	display:block;
 }
 
-.error{
+.error-display{
 	color:red;
 	font-weight:bold;
 	text-align:center;
