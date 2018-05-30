@@ -66,16 +66,14 @@ h1{
 .image-container{
 	position: relative;
 	list-style:none;
+	text-align:center;
 }
-
 .image-item{
-	display:inline-block;
-	width: 31%;
-	vertical-align:top;
+	padding:1rem 0;
 }
 
 .image-item img{
-	width:100%;
+	width:80%;
 	height:auto;
 	display:inline-block;
 }

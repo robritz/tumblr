@@ -15,15 +15,12 @@ var tumblr = new Vue({
 		errorMsgs: {
 			noMatch: "There were no photo posts that matched your criteria.",
 			loadFail: "There was an error loading your images. Please try again."
-		}
+		},
+		placeMaxImages: 3
 	},
 	methods:{
 		init: function(){
-			document.addEventListener('scroll', ()=>{
-			  if(this.getDistFromBottom() < 20){
-			  	this.gatherPhotos();
-			  }
-			});
+			document.addEventListener('scroll', this.checkLoadNextImageBatch);
 			this.gatherPhotos();
 		},
 		getApiUrl: function(){
@@ -41,9 +38,7 @@ var tumblr = new Vue({
 				this.error = false;
 				this.isLoading = true;
 				this.$http.get(this.getApiUrl()).then(response => {
-
 			    if(response.body.meta.status === 200){
-			    	console.log(response.body.response);
 			    	this.processResponse(response.body.response);
 			    }else{
 			    	this.displayError(this.errorMsgs.loadFail);
@@ -55,62 +50,53 @@ var tumblr = new Vue({
 		  }
 		},
 		processResponse: function(posts){
-			let loopStop = Math.min(this.apiParams.limit, posts.length);
-			if(loopStop > 0){
-				for(let i = 0; i < loopStop; i++){
+			this.isLoading = false;
+			if(posts.length > 0){
+				
+				for(let i = 0; i < posts.length; i++){
 					let post = posts[i];
 
-					let postTypeAccepted = this.acceptedTypes.find(type => {
-						return type == post.type;
-					});
-
-					if(postTypeAccepted){
+					if(this.isPostTypeAccepted(post.type)){
 						this.preloadList.push(post.photos[0].original_size.url);
 					}
 
-					if(i === loopStop-1){
+					if(i === posts.length-1){
 						this.apiParams.before = post.timestamp;
-						this.preloadImages();
+						this.updateImageView();
 					}
-
 				}
+
 			}else{
 				this.displayError(this.errorMsgs.noMatch);
 			}
 			
-
-			console.log(this.preloadList);
-			
 		},
-		preloadImages: function(){
-			let inc = 0;
-			for(let url of this.preloadList){
-				let image = new Image();
-				image.addEventListener('load', ()=>{
-					inc++;
-					this.checkPreloadComplete(inc);
-				}, false);
-
-				image.src = url;
-			}
+		isPostTypeAccepted: function(postType){
+			return this.acceptedTypes.find(type => {
+				return type == postType;
+			});
 		},
-		checkPreloadComplete: function(targetLength){
-			if(this.preloadList.length == (targetLength+1)){
-				this.masterList.push.apply(this.masterList, this.preloadList);
-				this.preloadList = [];
-				this.isLoading = false;
-				this.offset = this.masterList.length;
+		updateImageView: function(){
+			for(let i = 0; i < this.placeMaxImages; i++){
+				this.masterList.push(this.preloadList[0]);
+				this.preloadList.shift();
 			}
 		},
 		getDistFromBottom: function() {
-
-  		// distance from bottom math from: https://codepen.io/timothyli/pen/JXVMZY
-		  let scrollPosition = window.pageYOffset;
-		  let windowSize = window.innerHeight;
-		  let bodyHeight = document.body.offsetHeight;
+			const scrollPosition = window.pageYOffset;
+	  	const windowSize = window.innerHeight;
+	  	const bodyHeight = document.body.offsetHeight;
 
 		  return Math.max(bodyHeight - (scrollPosition + windowSize), 0);
-
+		},
+		checkLoadNextImageBatch: function(){
+			if(this.getDistFromBottom() < 20){
+		 		if(this.preloadList.length < this.placeMaxImages){
+		 			this.gatherPhotos();
+		 		}else{
+		 			this.updateImageView();
+		 		}
+		  }
 		},
 		displayError: function(error){
 			this.error = error;
